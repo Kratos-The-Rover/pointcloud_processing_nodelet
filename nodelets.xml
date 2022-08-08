@@ -1,0 +1,11 @@
+<library path="lib/libpointcloud_processor">
+
+  <class name="processing_nodelet/pointcloud_processor_nodelet"
+   type="Pointcloud_Nodelet_learn::PointcloudProcessorNodelet"
+   base_class_type="nodelet::Nodelet">
+    <description>
+      Nodelet to convert sensor_msgs/PointCloud2 and nav_msgs/Odometry to nav_msgs/OccumpancyGrid.
+    </description>
+  </class>
+
+</library>
