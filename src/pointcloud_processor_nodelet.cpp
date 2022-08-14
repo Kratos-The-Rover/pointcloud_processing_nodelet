@@ -26,6 +26,12 @@
 #include <cublas_v2.h>
 #include <thrust/copy.h>
 #include <cuda_runtime.h>
+
+
+
+#include <pcl/filters/passthrough.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl_ros/point_cloud.h>
  /*********************************************************************
  * Software License Agreement (BSD License)
  *
@@ -90,7 +96,7 @@ namespace Pointcloud_Nodelet_learn
         private_nh.param<std::string>("cloud_target_frame", cloud_target_frame_, "");
         private_nh.param<double>("transform_tolerance", tolerance_, 0.01);
         private_nh.param<double>("inf_epsilon", inf_epsilon_, 1.0);
-        private_nh.param<int>("concurrency_level", concurrency_level, 1);
+        private_nh.param<int>("concurrency_level", concurrency_level, 0);
         private_nh.param<bool>("use_inf", use_inf_, true);
 
 
@@ -123,8 +129,8 @@ namespace Pointcloud_Nodelet_learn
         {
             tf2.reset(new tf2_ros::Buffer());
             tf2_listener.reset(new tf2_ros::TransformListener(*tf2));
-            cloud_message_filter_.reset(new CloudMessageFilter(cloud_sub_, *tf2, cloud_target_frame_, input_queue_size_, nh));
-            cloud_message_filter_->registerFailureCallback(boost::bind(&PointcloudProcessorNodelet::CloudFailureCallback,this,_1,_2));
+            // cloud_message_filter_.reset(new CloudMessageFilter(cloud_sub_, *tf2, cloud_target_frame_, input_queue_size_, nh));
+            // cloud_message_filter_->registerFailureCallback(boost::bind(&PointcloudProcessorNodelet::CloudFailureCallback,this,_1,_2));
         }
         
         
@@ -186,122 +192,248 @@ namespace Pointcloud_Nodelet_learn
 
 
 
-    void PointcloudProcessorNodelet::CloudFailureCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg, tf2_ros::filter_failure_reasons::FilterFailureReason reason)
+    // void PointcloudProcessorNodelet::CloudFailureCallback(const pcl::PointCloud <pcl::PointXYZRGB>::Ptr& cloud_msg, tf2_ros::filter_failure_reasons::FilterFailureReason reason)
+    // {
+    
+    // NODELET_WARN_STREAM_THROTTLE(1.0, "Can't transform pointcloud from frame " << cloud_msg->header.frame_id << " to "<< cloud_message_filter_->getTargetFramesString()<< " at time " << cloud_msg->header.stamp<< ", reason: " << reason);
+    
+    // }
+
+
+    
+    
+
+
+
+
+
+
+
+
+    void PointcloudProcessorNodelet::CloudCallBack(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud)
     {
-    
-    NODELET_WARN_STREAM_THROTTLE(1.0, "Can't transform pointcloud from frame " << cloud_msg->header.frame_id << " to "<< cloud_message_filter_->getTargetFramesString()<< " at time " << cloud_msg->header.stamp<< ", reason: " << reason);
-    
+
+        ros::Time begin=ros::Time::now();
+        // std::cout<<cloud_msg->points[0].x<<std::endl;
+
+
+        int cloud_size=pclCloud->height*pclCloud->width;
+        pcl::PointCloud <pcl::PointXYZRGB>::Ptr x=cleanCloud(pclCloud);
+        transformCloud(x);
+        pub.publish(*x);
+        
+
+        std::cout<<ros::Time::now()-begin<<std::endl;
+
+
+    }
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointcloudProcessorNodelet::cleanCloud(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& pclCloud){
+        pcl::PassThrough<pcl::PointXYZRGB> pass_through;
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr x(new pcl::PointCloud<pcl::PointXYZRGB>);
+        pass_through.setInputCloud(pclCloud);
+        pass_through.setFilterFieldName("z");
+        float min=0.0;
+        float max=10.0;
+        pass_through.getFilterLimits(min,max);
+        pass_through.filter(*x);
+        return x;
+
     }
 
 
-    
-    
 
+    void PointcloudProcessorNodelet::transformCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr pclCloud){
+        Eigen::MatrixXf trmt;
 
-
-
-
-
-
-
-    void PointcloudProcessorNodelet::CloudCallBack(const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
-    {
-
-    boost::shared_ptr <sensor_msgs::PointCloud2> cloud;
-    ros::Time begin=ros::Time::now();
-    Eigen::Affine3d transMat;
-
-
-
-
-
-
-
-    try
-    {
-
-
-
-    geometry_msgs::TransformStamped trans= tf2->lookupTransform("odom",cloud_msg->header.frame_id,ros::Time::now()-ros::Duration(0.06));
-    transMat=tf2::transformToEigen(trans);
-    Eigen::MatrixXf trmt=((Eigen::MatrixXd)transMat.matrix()).cast<float>();
-    trmt.resize(1,16);
-    
-    std::vector<float> HostVec;
-
-    this->createHostVector(&HostVec,cloud_msg,&nh);
-    
-
-    std::vector<float> rand(HostVec.size(),0);
-
-
-    thrust::device_vector<float> DeviceVec(HostVec.begin(),HostVec.end());
-    thrust::device_vector<float> DeviceMat(trmt.data(),trmt.data()+trmt.size());
-    thrust::device_vector<float> result(rand.begin(),rand.end());
-    int x=HostVec.size()/4;
-
-    float alpha = 1.0f;
-    float beta = 0.0f;
-    cudaDeviceSynchronize();
-    cublasSgemm(this->h,CUBLAS_OP_N, CUBLAS_OP_N, 4,x,4 , &alpha, thrust::raw_pointer_cast(DeviceMat.data()), 4, thrust::raw_pointer_cast(DeviceVec.data()), 4, &beta, thrust::raw_pointer_cast(result.data()), 4);
-    cudaDeviceSynchronize();
-    std::vector<float> resVec(result.size());
-    thrust::copy(result.begin(),result.end(),resVec.begin());
-
-    sensor_msgs::PointCloud2 cloud_out;
-    
-
-    cloud_out.header=cloud_msg->header;
-    cloud_out.fields.push_back(cloud_msg->fields[0]);
-    cloud_out.fields.push_back(cloud_msg->fields[1]);
-    cloud_out.fields.push_back(cloud_msg->fields[2]);
-    cloud_out.is_bigendian=cloud_msg->is_bigendian;
-    cloud_out.is_dense=true;
-    cloud_out.point_step=12;
-    cloud_out.height=1;
-    cloud_out.width=resVec.size()/4;
-    cloud_out.row_step=cloud_out.width*12;
-    cloud_out.data.reserve(resVec.size()*3);
-
-
-    std::vector<float>::iterator itr=resVec.begin();
-    for(sensor_msgs::PointCloud2Iterator <float> iter_x(cloud_out, "x"), iter_y(cloud_out, "y"),iter_z(cloud_out, "z");iter_x != iter_x.end();++iter_x, ++iter_y, ++iter_z){
-
-        if (itr>=resVec.end())
+        try
         {
-            *iter_x=0;
-            *iter_y=0;
-            *iter_z=0;
-            continue;
+            geometry_msgs::TransformStamped trans= tf2->lookupTransform("odom",pclCloud->header.frame_id,ros::Time::now()-ros::Duration(0.06));
+            Eigen::MatrixXf trmt=((Eigen::MatrixXd)tf2::transformToEigen(trans).matrix()).cast<float>();
+            trmt.resize(1,16);
+            
+            std::vector<float> HostVec;
+            thrust::device_vector<float> DeviceMat(trmt.data(),trmt.data()+trmt.size());
+
+            for(int i=0;i<pclCloud->points.size();i++){
+            if(! nh.ok()){
+                break;
+            }
+            HostVec.push_back(pclCloud->points[i].x);
+            HostVec.push_back(pclCloud->points[i].y);
+            HostVec.push_back(pclCloud->points[i].z);
+            HostVec.push_back(1);
+            }
+
+            thrust::device_vector<float> DeviceVec(HostVec.begin(),HostVec.end());
+
+            std::vector<float> rand(HostVec.size(),0);
+
+
+            thrust::device_vector<float> result(rand.begin(),rand.end());
+            int x=HostVec.size()/4;
+
+            float alpha = 1.0f;
+            float beta = 0.0f;
+            cudaDeviceSynchronize();
+            cublasSgemm(this->h,CUBLAS_OP_N, CUBLAS_OP_N, 4,x,4 , &alpha, thrust::raw_pointer_cast(DeviceMat.data()), 4, thrust::raw_pointer_cast(DeviceVec.data()), 4, &beta, thrust::raw_pointer_cast(result.data()), 4);
+            cudaDeviceSynchronize();
+            std::vector<float> resVec(result.size());
+            thrust::copy(result.begin(),result.end(),resVec.begin());
+            int m=0;
+            for(int i=0;i<resVec.size();i+=4){
+                pclCloud->points[m].x=resVec[i];
+                pclCloud->points[m].y=resVec[i+1];
+                pclCloud->points[m].z=resVec[i+2];
+                m++;
+            }
+            pclCloud->header.frame_id="odom";
+
+
+            
         }
-            *iter_x=*itr;
-        itr++;
-        *iter_y=*itr;
-        itr++;
-        *iter_z=*itr;
-        itr++;
-        itr++;
+        catch (tf2::TransformException& ex)
+        {
+            NODELET_ERROR_STREAM("Transform failure: " << ex.what());
+            return;
+        }
+        
         
     }
-    cloud_out.data.resize(resVec.size()*3);
-    std::cout<<"resVec size: "<<resVec.size()<<" data size: "<<cloud_out.data.size()<<" HostVec size: "<<HostVec.size()<<std::endl;
-    cloud_out.header.frame_id="odom";
-    pub.publish(cloud_out);
-    }
-    catch (tf2::TransformException& ex)
-    {
-      NODELET_ERROR_STREAM("Transform failure: " << ex.what());
-      return;
-    }
-
-    std::cout<<"header:: "<<std::endl;
 
 
-    std::cout<<ros::Time::now()-begin<<std::endl;
 
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     void PointcloudProcessorNodelet::createHostVector(std::vector<float>* HostVec,const sensor_msgs::PointCloud2ConstPtr& cloud_msg,ros::NodeHandle *nh){
+        int i=0;
         for (sensor_msgs::PointCloud2ConstIterator<float> iter_x_in(*cloud_msg, "x"), iter_y_in(*cloud_msg, "y"),iter_z_in(*cloud_msg, "z");iter_x_in != iter_x_in.end();++iter_x_in, ++iter_y_in, ++iter_z_in){
                 if(!nh->ok()){
                     break;
@@ -312,11 +444,13 @@ namespace Pointcloud_Nodelet_learn
                 continue;
                 }
 
+
                 HostVec->push_back(*iter_x_in);
                 HostVec->push_back(*iter_y_in);
                 HostVec->push_back(*iter_z_in);
                 HostVec->push_back(1);
                 // HostVec->push_back(*iter_rgb_in);
+                i++;
 
             }
     }

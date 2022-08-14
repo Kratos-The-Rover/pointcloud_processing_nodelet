@@ -4,7 +4,11 @@ FIND_PACKAGE(CUDA REQUIRED)
 include_directories("${CUDA_INCLUDE_DIRS}")
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
+find_package(PCL REQUIRED)
 
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -15,8 +19,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   message_filters
   tf2_sensor_msgs
+  pcl_ros
+  pcl_conversions
 )
-
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -197,9 +202,9 @@ include_directories(
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 add_library(pointcloud_processor src/pointcloud_processor_nodelet.cpp)
-target_link_libraries(pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES}  ${CUDA_CUBLAS_LIBRARIES})
+target_link_libraries(pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES}  ${CUDA_CUBLAS_LIBRARIES} ${PCL_LIBRARIES} )
 add_executable(pointcloud_processor_node src/pointcloud_processor_node.cpp)
-target_link_libraries(pointcloud_processor_node pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
+target_link_libraries(pointcloud_processor_node pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${PCL_LIBRARIES})
 
 #############
 ## Testing ##

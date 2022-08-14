@@ -30,6 +30,8 @@
 #include <cublas_v2.h>
 
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 
 
 class SubscriberBase
@@ -155,37 +157,40 @@ namespace Pointcloud_Nodelet_learn
     private:
         virtual void onInit();
 
-    void CloudFailureCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg, tf2_ros::filter_failure_reasons::FilterFailureReason reason);
+    // void CloudFailureCallback(const pcl::PointCloud <pcl::PointXYZRGB>::Ptr& cloud_msg, tf2_ros::filter_failure_reasons::FilterFailureReason reason);
     void connectCallback();
     void disconnectCallback();
     void createHostVector(std::vector<float>* HostVec, const sensor_msgs::PointCloud2ConstPtr& cloud_msg, ros::NodeHandle* nh);
 
+    pcl::PointCloud <pcl::PointXYZRGB>::Ptr cleanCloud(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud);
+    void transformCloud(pcl::PointCloud <pcl::PointXYZRGB>::Ptr pclCloud);
+    
     ros::NodeHandle nh, private_nh;
     ros::Publisher pub;
     
 
 
-      boost::mutex connect_mutex;
-      boost::shared_ptr<tf2_ros::Buffer> tf2;
-      boost::shared_ptr<tf2_ros::TransformListener> tf2_listener;
+    boost::mutex connect_mutex;
+    boost::shared_ptr<tf2_ros::Buffer> tf2;
+    boost::shared_ptr<tf2_ros::TransformListener> tf2_listener;
 
 
-      Subscriber<sensor_msgs::PointCloud2> cloud_sub_;
-      boost::shared_ptr<CloudMessageFilter> cloud_message_filter_;
-      
-      cublasHandle_t h;
+    Subscriber<pcl::PointCloud <pcl::PointXYZRGB>> cloud_sub_;
+    boost::shared_ptr<CloudMessageFilter> cloud_message_filter_;
+    
+    cublasHandle_t h;
 
 
-      void CloudCallBack(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
+    void CloudCallBack(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud);
 
 
-      // ROS Parameters
+    // ROS Parameters
 
-      unsigned int input_queue_size_;
-      std::string cloud_target_frame_;
-      double tolerance_;
-      bool use_inf_;
-      double inf_epsilon_;
+    unsigned int input_queue_size_;
+    std::string cloud_target_frame_;
+    double tolerance_;
+    bool use_inf_;
+    double inf_epsilon_;
 
   };
 }
