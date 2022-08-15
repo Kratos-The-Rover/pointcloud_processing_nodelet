@@ -32,6 +32,9 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/point_cloud.h>
+
+#include <grid_map_msgs/GridMap.h>
+#include <grid_map_ros/grid_map_ros.hpp>
  /*********************************************************************
  * Software License Agreement (BSD License)
  *
@@ -96,7 +99,7 @@ namespace Pointcloud_Nodelet_learn
         private_nh.param<std::string>("cloud_target_frame", cloud_target_frame_, "");
         private_nh.param<double>("transform_tolerance", tolerance_, 0.01);
         private_nh.param<double>("inf_epsilon", inf_epsilon_, 1.0);
-        private_nh.param<int>("concurrency_level", concurrency_level, 0);
+        private_nh.param<int>("concurrency_level", concurrency_level, 1);
         private_nh.param<bool>("use_inf", use_inf_, true);
 
 
@@ -140,12 +143,14 @@ namespace Pointcloud_Nodelet_learn
             tf2.reset(new tf2_ros::Buffer());
             tf2_listener.reset(new tf2_ros::TransformListener(*tf2));
             cloud_sub_.registerCallback(boost::bind(&PointcloudProcessorNodelet::CloudCallBack,this,_1));
+            std::cout<<"am here"<<std::endl;
         }
             
 
 
-            
-        pub = nh.advertise<sensor_msgs::PointCloud2>("clouder", 10, boost::bind(&PointcloudProcessorNodelet::connectCallback, this), boost::bind(&PointcloudProcessorNodelet::disconnectCallback, this));
+        createMap();
+        pub = nh.advertise<grid_map_msgs::GridMap>("clouder", 10, boost::bind(&PointcloudProcessorNodelet::connectCallback, this), boost::bind(&PointcloudProcessorNodelet::disconnectCallback, this));
+        std::cout<<"done initializing"<<std::endl;
     }
 
 
@@ -171,7 +176,13 @@ namespace Pointcloud_Nodelet_learn
 
 
 
+    void PointcloudProcessorNodelet::createMap(){
+        map_ptr.reset(new grid_map::GridMap);
+        map_ptr->add("elevation");
+        map_ptr->setFrameId("odom");
+        map_ptr->setGeometry(grid_map::Length(200,200),0.5);
 
+    }
 
 
 
@@ -212,7 +223,7 @@ namespace Pointcloud_Nodelet_learn
 
     void PointcloudProcessorNodelet::CloudCallBack(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud)
     {
-
+        // std::cout<<"begin callback"<<std::endl;
         ros::Time begin=ros::Time::now();
         // std::cout<<cloud_msg->points[0].x<<std::endl;
 
@@ -220,12 +231,40 @@ namespace Pointcloud_Nodelet_learn
         int cloud_size=pclCloud->height*pclCloud->width;
         pcl::PointCloud <pcl::PointXYZRGB>::Ptr x=cleanCloud(pclCloud);
         transformCloud(x);
-        pub.publish(*x);
         
 
+
+        ros::Time time = ros::Time::now();
+
+
+        for (auto i:x->points){
+            grid_map::Position coordinate(i.x,i.y);
+            if(isnan(map_ptr->atPosition("elevation",coordinate))){
+                map_ptr->atPosition("elevation",coordinate)=i.z;
+            }else if (map_ptr->atPosition("elevation",coordinate)<i.z){
+
+                map_ptr->atPosition("elevation",coordinate)=i.z;
+            }
+
+        }
+
+
+
+        // for (grid_map::GridMapIterator it(*map_ptr); !it.isPastEnd(); ++it) {
+        //     grid_map::Position position;
+        //     map_ptr->getPosition(*it, position);
+            // map_ptr->at("elevation", *it) = -0.04 + 0.2 * std::sin(3.0 *time.toSec() + 5.0 * position.y()) * position.x();
+        // }
+
+        map_ptr->setTimestamp(time.toNSec());
+        grid_map_msgs::GridMap message;
+        grid_map::GridMapRosConverter::toMessage(*map_ptr,message);
+        std::cout<<"publishing"<<std::endl;
+        pub.publish(message);
         std::cout<<ros::Time::now()-begin<<std::endl;
+        // pub.publish(*x);
 
-
+        
     }
 
   

@@ -33,6 +33,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include <grid_map_core/GridMap.hpp>
+
 
 class SubscriberBase
  {
@@ -163,13 +165,15 @@ namespace Pointcloud_Nodelet_learn
     void createHostVector(std::vector<float>* HostVec, const sensor_msgs::PointCloud2ConstPtr& cloud_msg, ros::NodeHandle* nh);
 
     pcl::PointCloud <pcl::PointXYZRGB>::Ptr cleanCloud(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud);
+
     void transformCloud(pcl::PointCloud <pcl::PointXYZRGB>::Ptr pclCloud);
     
+    void createMap();
     ros::NodeHandle nh, private_nh;
     ros::Publisher pub;
     
 
-
+    boost::shared_ptr<grid_map::GridMap> map_ptr;
     boost::mutex connect_mutex;
     boost::shared_ptr<tf2_ros::Buffer> tf2;
     boost::shared_ptr<tf2_ros::TransformListener> tf2_listener;

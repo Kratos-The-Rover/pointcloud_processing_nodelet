@@ -21,6 +21,12 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_sensor_msgs
   pcl_ros
   pcl_conversions
+  grid_map_core
+  grid_map_msgs
+  grid_map_ros
+  grid_map_loader
+  
+
 )
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
