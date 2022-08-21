@@ -167,7 +167,7 @@ namespace Pointcloud_Nodelet_learn
     pcl::PointCloud <pcl::PointXYZRGB>::Ptr cleanCloud(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud);
 
     void transformCloud(pcl::PointCloud <pcl::PointXYZRGB>::Ptr pclCloud);
-    
+    long counter=0;
     void createMap();
     ros::NodeHandle nh, private_nh;
     ros::Publisher pub;

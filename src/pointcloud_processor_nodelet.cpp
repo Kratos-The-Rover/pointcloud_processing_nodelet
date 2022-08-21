@@ -86,9 +86,10 @@ namespace Pointcloud_Nodelet_learn
     void PointcloudProcessorNodelet::onInit()
     {
 
-                    cublasCreate(&h);
+        cublasCreate(&h);
         NODELET_INFO("initialized");
         boost::mutex::scoped_lock lock(connect_mutex);
+
         private_nh=getPrivateNodeHandle();
 
 
@@ -179,8 +180,10 @@ namespace Pointcloud_Nodelet_learn
     void PointcloudProcessorNodelet::createMap(){
         map_ptr.reset(new grid_map::GridMap);
         map_ptr->add("elevation");
+        map_ptr->add("count");
         map_ptr->setFrameId("odom");
-        map_ptr->setGeometry(grid_map::Length(200,200),0.5);
+        map_ptr->setGeometry(grid_map::Length(2000,2000),0.4);
+        map_ptr->clearAll();
 
     }
 
@@ -190,10 +193,12 @@ namespace Pointcloud_Nodelet_learn
 
     void PointcloudProcessorNodelet::disconnectCallback()
     {
+
         boost::mutex::scoped_lock lock(connect_mutex);
         if (pub.getNumSubscribers() == 0)
         {
             NODELET_INFO("No subscibers to scan, shutting down subscriber to pointcloud");
+            counter=0;
             cloud_sub_.unsubscribe();
         }
     }
@@ -229,39 +234,57 @@ namespace Pointcloud_Nodelet_learn
 
 
         int cloud_size=pclCloud->height*pclCloud->width;
-        pcl::PointCloud <pcl::PointXYZRGB>::Ptr x=cleanCloud(pclCloud);
-        transformCloud(x);
+        pcl::PointCloud <pcl::PointXYZRGB>::Ptr pointcloud_pointer=cleanCloud(pclCloud);
+        transformCloud(pointcloud_pointer);
         
 
 
         ros::Time time = ros::Time::now();
 
+        //x points to pointcloudl;
+        //x->points==(*x).points which is a vector;
+        
+        // for i in list:
+        //     do shit
 
-        for (auto i:x->points){
-            grid_map::Position coordinate(i.x,i.y);
-            if(isnan(map_ptr->atPosition("elevation",coordinate))){
-                map_ptr->atPosition("elevation",coordinate)=i.z;
-            }else if (map_ptr->atPosition("elevation",coordinate)<i.z){
+        // for (auto i:(x->points)){
+        //     grid_map::Position coordinate(i.x,i.y);
+        //     if(isnan(map_ptr->atPosition("elevation2",coordinate))){
+        //         map_ptr->atPosition("elevation2",coordinate)=i.z;
+        //     }else if (map_ptr->atPosition("elevation",coordinate)<i.z){
 
-                map_ptr->atPosition("elevation",coordinate)=i.z;
-            }
+        //         map_ptr->atPosition("elevation2",coordinate)=i.z;
+        //     }
 
-        }
+        // }
 
 
 
         // for (grid_map::GridMapIterator it(*map_ptr); !it.isPastEnd(); ++it) {
         //     grid_map::Position position;
         //     map_ptr->getPosition(*it, position);
-            // map_ptr->at("elevation", *it) = -0.04 + 0.2 * std::sin(3.0 *time.toSec() + 5.0 * position.y()) * position.x();
+        //     map_ptr->at("elevation", *it) = -0.04 + 0.2 * std::sin(3.0 *time.toSec() + 5.0 * position.y()) * position.x();
         // }
 
         map_ptr->setTimestamp(time.toNSec());
-        grid_map_msgs::GridMap message;
-        grid_map::GridMapRosConverter::toMessage(*map_ptr,message);
-        std::cout<<"publishing"<<std::endl;
-        pub.publish(message);
-        std::cout<<ros::Time::now()-begin<<std::endl;
+
+
+
+        // msg_ptr->data[0].
+
+
+
+
+
+
+	ros::Time convert=ros::Time::now();
+        grid_map::GridMapRosConverter::toMessage(*map_ptr,{"elevation"},*msg_ptr);
+	std::cout<<"pointxloud_convert: "<<ros::Time::now()-begin<<"converting: "<<ros::Time::now()-convert<<" ";
+        ros::Time bef_pub=ros::Time::now();
+        std::cout<<"processing: "<<bef_pub-begin<<" ";
+        // std::cout<<"publishing"<<std::endl;
+        pub.publish(msg_ptr);
+        std::cout<<"publishing: "<<ros::Time::now()-bef_pub<<" net: "<<ros::Time::now()-begin<<std::endl;
         // pub.publish(*x);
 
         
@@ -312,7 +335,7 @@ namespace Pointcloud_Nodelet_learn
 
     void PointcloudProcessorNodelet::transformCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr pclCloud){
         Eigen::MatrixXf trmt;
-
+        counter++;
         try
         {
             geometry_msgs::TransformStamped trans= tf2->lookupTransform("odom",pclCloud->header.frame_id,ros::Time::now()-ros::Duration(0.06));
@@ -348,10 +371,34 @@ namespace Pointcloud_Nodelet_learn
             std::vector<float> resVec(result.size());
             thrust::copy(result.begin(),result.end(),resVec.begin());
             int m=0;
+
+            grid_map_msgs::GridMapPtr msg_ptr(new grid_map_msgs::GridMap);
+            
+
             for(int i=0;i<resVec.size();i+=4){
-                pclCloud->points[m].x=resVec[i];
-                pclCloud->points[m].y=resVec[i+1];
-                pclCloud->points[m].z=resVec[i+2];
+                if(!nh.ok() ){
+                    // ros::Duration(5).sleep();
+                    break;
+                }
+                grid_map::Position coordinate(resVec[i],resVec[i+1]);
+                if(isnan(map_ptr->atPosition("elevation",coordinate))){
+                    map_ptr->atPosition("elevation",coordinate)=resVec[i+2];
+                map_ptr->atPosition("count",coordinate)=1;
+
+                }else {
+                    float prev=map_ptr->atPosition("elevation",coordinate);
+                    map_ptr->atPosition("elevation",coordinate)*=map_ptr->atPosition("count",coordinate);
+                    map_ptr->atPosition("elevation",coordinate)+=resVec[i+2];
+                    map_ptr->atPosition("elevation",coordinate)/=(++(map_ptr->atPosition("count",coordinate)));//(map_ptr->atPosition("elevation",coordinate)+resVec[i+2])/counter;
+                    // std::cout<<map_ptr->atPosition("elevation",coordinate)<<std::endl;
+                    // std::cout<<"count: " <<map_ptr->atPosition("count",coordinate)<<" prev: "<<prev<<" elev: "<< map_ptr->atPosition("elevation",coordinate)<<" resvec: "<<resVec[i+2]<<" diff: "<<map_ptr->atPosition("elevation",coordinate)-resVec[i+2]<<" "<<counter<<std::endl;
+
+                }
+                
+
+                // pclCloud->points[m].x=resVec[i];
+                // pclCloud->points[m].y=resVec[i+1];
+                // pclCloud->points[m].z=resVec[i+2];
                 m++;
             }
             pclCloud->header.frame_id="odom";

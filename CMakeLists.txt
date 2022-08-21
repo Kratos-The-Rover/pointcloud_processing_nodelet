@@ -13,6 +13,7 @@ add_definitions(${PCL_DEFINITIONS})
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+tf2_ros
   cv_bridge
   nodelet
   roscpp
@@ -25,7 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
   grid_map_msgs
   grid_map_ros
   grid_map_loader
-  
+
 
 )
 ## System dependencies are found with CMake's conventions
@@ -120,7 +121,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES processing_nodelet
- CATKIN_DEPENDS cv_bridge nodelet roscpp rospy tf2_sensor_msgs
+ CATKIN_DEPENDS cv_bridge nodelet roscpp rospy tf2_sensor_msgs tf2_ros
 #  DEPENDS system_lib
 )
 
@@ -211,6 +212,8 @@ add_library(pointcloud_processor src/pointcloud_processor_nodelet.cpp)
 target_link_libraries(pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES}  ${CUDA_CUBLAS_LIBRARIES} ${PCL_LIBRARIES} )
 add_executable(pointcloud_processor_node src/pointcloud_processor_node.cpp)
 target_link_libraries(pointcloud_processor_node pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${PCL_LIBRARIES})
+add_executable(transform_Publisher src/transform_Publisher.cpp)
+target_link_libraries(transform_Publisher ${catkin_LIBRARIES})
 
 #############
 ## Testing ##
