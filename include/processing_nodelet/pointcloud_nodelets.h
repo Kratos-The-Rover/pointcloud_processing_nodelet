@@ -34,7 +34,7 @@
 #include <pcl/point_types.h>
 
 #include <grid_map_core/GridMap.hpp>
-
+#include <grid_map_msgs/GridMap.h>
 
 class SubscriberBase
  {
@@ -147,7 +147,6 @@ class SubscriberBase
 namespace Pointcloud_Nodelet_learn
 {
 
-
   typedef tf2_ros::MessageFilter<sensor_msgs::PointCloud2> CloudMessageFilter;
   typedef tf2_ros::MessageFilter<nav_msgs::Odometry> OdomMessageFilter;
 
@@ -167,27 +166,28 @@ namespace Pointcloud_Nodelet_learn
     pcl::PointCloud <pcl::PointXYZRGB>::Ptr cleanCloud(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud);
 
     void transformCloud(pcl::PointCloud <pcl::PointXYZRGB>::Ptr pclCloud);
-    long counter=0;
+    long counter;
     void createMap();
     ros::NodeHandle nh, private_nh;
     ros::Publisher pub;
     
 
-    boost::shared_ptr<grid_map::GridMap> map_ptr;
+    boost::shared_ptr <grid_map::GridMap>  map_ptr;
     boost::mutex connect_mutex;
     boost::shared_ptr<tf2_ros::Buffer> tf2;
     boost::shared_ptr<tf2_ros::TransformListener> tf2_listener;
 
+    grid_map_msgs::GridMapPtr msg_ptr;
 
     Subscriber<pcl::PointCloud <pcl::PointXYZRGB>> cloud_sub_;
     boost::shared_ptr<CloudMessageFilter> cloud_message_filter_;
     
     cublasHandle_t h;
 
-
+    void createMsg();
     void CloudCallBack(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud);
 
-
+    ros::Time beginner;
     // ROS Parameters
 
     unsigned int input_queue_size_;

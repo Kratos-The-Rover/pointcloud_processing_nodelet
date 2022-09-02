@@ -9,3 +9,14 @@
   </class>
 
 </library>
+<library path="lib/libplanner">
+
+  <class name="processing_nodelet/planner_nodelet"
+   type="planner::Plan"
+   base_class_type="nodelet::Nodelet">
+    <description>
+      planning nodelet
+    </description>
+  </class>
+
+</library>

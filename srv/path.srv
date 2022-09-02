@@ -1,0 +1,10 @@
+#request
+nav_msgs/OccupancyGrid obstacle_map
+geometry_msgs/Point start_pos
+geometry_msgs/Point goal_pos
+---
+#response
+#ack=1 -> path found, ack=0 -> path not found
+bool ack
+float64[] trajectory_x
+float64[] trajectory_y

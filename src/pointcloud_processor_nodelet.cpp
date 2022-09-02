@@ -35,6 +35,7 @@
 
 #include <grid_map_msgs/GridMap.h>
 #include <grid_map_ros/grid_map_ros.hpp>
+#include <std_msgs/Float32MultiArray.h>
  /*********************************************************************
  * Software License Agreement (BSD License)
  *
@@ -147,9 +148,10 @@ namespace Pointcloud_Nodelet_learn
             std::cout<<"am here"<<std::endl;
         }
             
-
-
         createMap();
+
+        createMsg();
+        counter=0;
         pub = nh.advertise<grid_map_msgs::GridMap>("clouder", 10, boost::bind(&PointcloudProcessorNodelet::connectCallback, this), boost::bind(&PointcloudProcessorNodelet::disconnectCallback, this));
         std::cout<<"done initializing"<<std::endl;
     }
@@ -159,7 +161,49 @@ namespace Pointcloud_Nodelet_learn
 
 
 
+    void PointcloudProcessorNodelet::createMsg(){
+        std::cout<<"creating message"<<std::endl;
+        msg_ptr.reset(new grid_map_msgs::GridMap);
+        std::cout<<"step1 done"<<std::endl;
 
+
+        msg_ptr->info.header.stamp.fromNSec(map_ptr->getTimestamp());
+        msg_ptr->info.header.frame_id = map_ptr->getFrameId();
+        msg_ptr->info.resolution = map_ptr->getResolution();
+        msg_ptr->info.length_x = map_ptr->getLength().x();
+        msg_ptr->info.length_y = map_ptr->getLength().y();
+        msg_ptr->info.pose.position.x =map_ptr->getPosition().x();
+        msg_ptr->info.pose.position.y = map_ptr->getPosition().y();
+        msg_ptr->info.pose.position.z = 0.0;
+        msg_ptr->info.pose.orientation.x = 0.0;
+        msg_ptr->info.pose.orientation.y = 0.0;
+        msg_ptr->info.pose.orientation.z = 0.0;
+        msg_ptr->info.pose.orientation.w = 1.0;
+        
+        msg_ptr->data.clear();
+        msg_ptr->layers={"elevation"};
+        msg_ptr->basic_layers=map_ptr->getBasicLayers();
+
+        std_msgs::Float32MultiArray dataArray;
+
+        msg_ptr->outer_start_index=map_ptr->getStartIndex()(0);
+        msg_ptr->inner_start_index=map_ptr->getStartIndex()(1);
+        std::cout<<"main message created"<<std::endl;
+
+        dataArray.layout.dim.reserve(2);
+        dataArray.layout.dim.resize(2);
+
+        dataArray.layout.dim[0].stride = 100000000;
+        dataArray.layout.dim[0].size = 10000;
+        dataArray.layout.dim[1].stride = 10000;
+        dataArray.layout.dim[1].size = 10000;
+        dataArray.layout.dim[0].label=grid_map::storageIndexNames[grid_map::StorageIndices::Column];
+        dataArray.layout.dim[1].label=grid_map::storageIndexNames[grid_map::StorageIndices::Row];
+        std::vector<float> vec(100000000,NAN);
+        dataArray.data=vec;
+        msg_ptr->data.push_back(dataArray);
+        std::cout<<"message created"<<std::endl;
+    }
 
 
     void PointcloudProcessorNodelet::connectCallback()
@@ -170,6 +214,7 @@ namespace Pointcloud_Nodelet_learn
         if (pub.getNumSubscribers() > 0 && cloud_sub_.getSubscriber().getNumPublishers()==0)
         {
             NODELET_INFO("Got a subscriber to scan, starting subscriber to pointcloud");
+            // beginner.now();
             cloud_sub_.subscribe(nh, "cloud_in", 2*input_queue_size_);
         }
 
@@ -182,7 +227,7 @@ namespace Pointcloud_Nodelet_learn
         map_ptr->add("elevation");
         map_ptr->add("count");
         map_ptr->setFrameId("odom");
-        map_ptr->setGeometry(grid_map::Length(2000,2000),0.4);
+        map_ptr->setGeometry(grid_map::Length(2000,2000),0.2);
         map_ptr->clearAll();
 
     }
@@ -228,10 +273,13 @@ namespace Pointcloud_Nodelet_learn
 
     void PointcloudProcessorNodelet::CloudCallBack(const pcl::PointCloud <pcl::PointXYZRGB>::ConstPtr& pclCloud)
     {
-        // std::cout<<"begin callback"<<std::endl;
-        ros::Time begin=ros::Time::now();
-        // std::cout<<cloud_msg->points[0].x<<std::endl;
+        beginner=beginner.now();
 
+
+        // std::cout<<"begin callback"<<std::endl;
+        
+        // std::cout<<cloud_msg->points[0].x<<std::endl;
+        
 
         int cloud_size=pclCloud->height*pclCloud->width;
         pcl::PointCloud <pcl::PointXYZRGB>::Ptr pointcloud_pointer=cleanCloud(pclCloud);
@@ -241,34 +289,9 @@ namespace Pointcloud_Nodelet_learn
 
         ros::Time time = ros::Time::now();
 
-        //x points to pointcloudl;
-        //x->points==(*x).points which is a vector;
+        // map_ptr->setTimestamp(time.toNSec());
+
         
-        // for i in list:
-        //     do shit
-
-        // for (auto i:(x->points)){
-        //     grid_map::Position coordinate(i.x,i.y);
-        //     if(isnan(map_ptr->atPosition("elevation2",coordinate))){
-        //         map_ptr->atPosition("elevation2",coordinate)=i.z;
-        //     }else if (map_ptr->atPosition("elevation",coordinate)<i.z){
-
-        //         map_ptr->atPosition("elevation2",coordinate)=i.z;
-        //     }
-
-        // }
-
-
-
-        // for (grid_map::GridMapIterator it(*map_ptr); !it.isPastEnd(); ++it) {
-        //     grid_map::Position position;
-        //     map_ptr->getPosition(*it, position);
-        //     map_ptr->at("elevation", *it) = -0.04 + 0.2 * std::sin(3.0 *time.toSec() + 5.0 * position.y()) * position.x();
-        // }
-
-        map_ptr->setTimestamp(time.toNSec());
-
-
 
         // msg_ptr->data[0].
 
@@ -276,18 +299,21 @@ namespace Pointcloud_Nodelet_learn
 
 
 
-
-	ros::Time convert=ros::Time::now();
-        grid_map::GridMapRosConverter::toMessage(*map_ptr,{"elevation"},*msg_ptr);
-	std::cout<<"pointxloud_convert: "<<ros::Time::now()-begin<<"converting: "<<ros::Time::now()-convert<<" ";
+	// ros::Time convert=ros::Time::now();
+    // grid_map_msgs::GridMapPtr msg_ptr(new grid_map_msgs::GridMap);
+        // grid_map::GridMapRosConverter::toMessage(*map_ptr,{"elevation"},*msg_ptr);
+	// std::cout<<"pointxloud_convert: "<<ros::Time::now()-begin<<"converting: "<<ros::Time::now()-convert<<" ";
         ros::Time bef_pub=ros::Time::now();
-        std::cout<<"processing: "<<bef_pub-begin<<" ";
-        // std::cout<<"publishing"<<std::endl;
+        // std::cout<<"processing: "<<bef_pub-begin<<" ";
+        // std::cout<<msg_ptr->data[0].layout.data_offset<<std::endl;
         pub.publish(msg_ptr);
-        std::cout<<"publishing: "<<ros::Time::now()-bef_pub<<" net: "<<ros::Time::now()-begin<<std::endl;
+        // std::cout<<"publisher count: "<<counter<<std::endl;
+        // if(!(counter%100)){
+        //     std::cout<<"publisher counter: "<<counter<<", frequency: "<<(float)counter/((ros::Time::now()-beginner).toSec())<<", time: "<<ros::Time::now()-beginner<<std::endl;
+        // }
+        // std::cout<<"processing"<<time-begin<<"publishing: "<<ros::Time::now()-bef_pub<<" net: "<<ros::Time::now()-begin<<std::endl;
         // pub.publish(*x);
-
-        
+        std::cout<<"publish freq: "<<(1/(ros::Time::now()-beginner).toSec())<<std::endl;
     }
 
   
@@ -372,28 +398,62 @@ namespace Pointcloud_Nodelet_learn
             thrust::copy(result.begin(),result.end(),resVec.begin());
             int m=0;
 
-            grid_map_msgs::GridMapPtr msg_ptr(new grid_map_msgs::GridMap);
             
+            // std::cout<<map_ptr->get("elevation").IsRowMajor<<std::endl;
 
-            for(int i=0;i<resVec.size();i+=4){
+            // for(int i=0;i<resVec.size();i+=4){
+            //     if(!nh.ok() ){
+            //         // ros::Duration(5).sleep();
+            //         break;
+            //     }
+            //     grid_map::Position coordinate(resVec[i],resVec[i+1]);
+            //     if(isnan(map_ptr->atPosition("elevation",coordinate))){
+            //         map_ptr->atPosition("elevation",coordinate)=resVec[i+2];
+            //         map_ptr->atPosition("count",coordinate)=1;
+
+            //     }else {
+            //         float prev=map_ptr->atPosition("elevation",coordinate);
+            //         map_ptr->atPosition("elevation",coordinate)*=map_ptr->atPosition("count",coordinate);
+            //         map_ptr->atPosition("elevation",coordinate)+=resVec[i+2];
+            //         map_ptr->atPosition("elevation",coordinate)/=(++(map_ptr->atPosition("count",coordinate)));//(map_ptr->atPosition("elevation",coordinate)+resVec[i+2])/counter;
+            //         // std::cout<<map_ptr->atPosition("elevation",coordinate)<<std::endl;
+            //         // std::cout<<"count: " <<map_ptr->atPosition("count",coordinate)<<" prev: "<<prev<<" elev: "<< map_ptr->atPosition("elevation",coordinate)<<" resvec: "<<resVec[i+2]<<" diff: "<<map_ptr->atPosition("elevation",coordinate)-resVec[i+2]<<" "<<counter<<std::endl;
+
+            //     }
+
+
+
+                for(int i=0;i<resVec.size();i+=4){
                 if(!nh.ok() ){
                     // ros::Duration(5).sleep();
                     break;
                 }
                 grid_map::Position coordinate(resVec[i],resVec[i+1]);
-                if(isnan(map_ptr->atPosition("elevation",coordinate))){
-                    map_ptr->atPosition("elevation",coordinate)=resVec[i+2];
-                map_ptr->atPosition("count",coordinate)=1;
+                grid_map::Index index;
+                map_ptr->getIndex(coordinate,index);
+   
+                if(isnan(msg_ptr->data[0].data[10000*index[1]+index[0]])){
+                    msg_ptr->data[0].data[10000*index[1]+index[0]]=resVec[i+20];
+                    // map_ptr->atPosition("elevation",coordinate)=resVec[i+2];
+                    map_ptr->atPosition("count",coordinate)=1;
 
-                }else {
+                }
+                else {
                     float prev=map_ptr->atPosition("elevation",coordinate);
-                    map_ptr->atPosition("elevation",coordinate)*=map_ptr->atPosition("count",coordinate);
-                    map_ptr->atPosition("elevation",coordinate)+=resVec[i+2];
-                    map_ptr->atPosition("elevation",coordinate)/=(++(map_ptr->atPosition("count",coordinate)));//(map_ptr->atPosition("elevation",coordinate)+resVec[i+2])/counter;
+                    msg_ptr->data[0].data[10000*index[1]+index[0]]*=map_ptr->atPosition("count",coordinate);
+                    msg_ptr->data[0].data[10000*index[1]+index[0]]+=resVec[i+2];
+                    
+                    // std::cout<<msg_ptr->data[0].data[5000*index[0]+index[1]]<<std::endl;
+                    msg_ptr->data[0].data[10000*index[1]+index[0]]/=(++(map_ptr->atPosition("count",coordinate)));//(map_ptr->atPosition("elevation",coordinate)+resVec[i+2])/counter;
                     // std::cout<<map_ptr->atPosition("elevation",coordinate)<<std::endl;
                     // std::cout<<"count: " <<map_ptr->atPosition("count",coordinate)<<" prev: "<<prev<<" elev: "<< map_ptr->atPosition("elevation",coordinate)<<" resvec: "<<resVec[i+2]<<" diff: "<<map_ptr->atPosition("elevation",coordinate)-resVec[i+2]<<" "<<counter<<std::endl;
 
                 }
+
+
+
+
+                //n-> avg(n)...... sum(n)/n.... -> avg(n)*n== sum(n)+obs(n+1)/n+1
                 
 
                 // pclCloud->points[m].x=resVec[i];
@@ -401,7 +461,7 @@ namespace Pointcloud_Nodelet_learn
                 // pclCloud->points[m].z=resVec[i+2];
                 m++;
             }
-            pclCloud->header.frame_id="odom";
+            // pclCloud->header.frame_id="odom";
 
 
             

@@ -70,11 +70,10 @@ tf2_ros
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  path.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -210,8 +209,11 @@ include_directories(
 # )
 add_library(pointcloud_processor src/pointcloud_processor_nodelet.cpp)
 target_link_libraries(pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES}  ${CUDA_CUBLAS_LIBRARIES} ${PCL_LIBRARIES} )
+
+add_library(planner src/planner_nodelet.cpp)
+target_link_libraries(planner ${catkin_LIBRARIES} ${CUDA_LIBRARIES}  ${CUDA_CUBLAS_LIBRARIES} ${PCL_LIBRARIES})
 add_executable(pointcloud_processor_node src/pointcloud_processor_node.cpp)
-target_link_libraries(pointcloud_processor_node pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(pointcloud_processor_node planner pointcloud_processor ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES} ${PCL_LIBRARIES})
 add_executable(transform_Publisher src/transform_Publisher.cpp)
 target_link_libraries(transform_Publisher ${catkin_LIBRARIES})
 
