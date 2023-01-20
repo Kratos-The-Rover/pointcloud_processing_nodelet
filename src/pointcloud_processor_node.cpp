@@ -13,23 +13,9 @@ int main(int argc, char** argv)
   nodelet::Loader nodelet;
   nodelet::M_string remap(ros::names::getRemappings());
   nodelet::V_string nargv;
-  for(auto i:remap){
-    std::cout<<i.first<<" "<<i.second<<std::endl;
-  }
-  for(auto i: nargv){
-  
-
-    std::cout<<i<<std::endl;
-  }
   std::string nodelet_name = ros::this_node::getName();
-  std::cout<<nodelet_name<<std::endl;
-  // nodelet.load();
-  // nodelet::M_string remap(ros::names::getRemappings());
-  // nodelet::V_string nargv;
-  // std::string nodelet_name = ros::this_node::getName();
-  // nodelet_name = ros::this_node::getName();
-  std::cout<<nodelet_name<<std::endl;
-  // nodelet.load();
+  nodelet_name = ros::this_node::getName();
+  nodelet.load(nodelet_name, "processing_nodelet/pointcloud_processor_nodelet", remap, nargv);
 
   // nodelet.load()
 

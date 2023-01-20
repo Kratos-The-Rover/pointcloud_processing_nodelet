@@ -101,7 +101,7 @@ namespace Pointcloud_Nodelet_learn
         private_nh.param<std::string>("cloud_target_frame", cloud_target_frame_, "");
         private_nh.param<double>("transform_tolerance", tolerance_, 0.01);
         private_nh.param<double>("inf_epsilon", inf_epsilon_, 1.0);
-        private_nh.param<int>("concurrency_level", concurrency_level, 1);
+        private_nh.param<int>("concurrency_level", concurrency_level, 0);
         private_nh.param<bool>("use_inf", use_inf_, true);
 
 
@@ -213,7 +213,7 @@ namespace Pointcloud_Nodelet_learn
 
         if (pub.getNumSubscribers() > 0 && cloud_sub_.getSubscriber().getNumPublishers()==0)
         {
-            NODELET_INFO("Got a subscriber to scan, starting subscriber to pointcloud");
+		std::cout<<"Got a subscriber to scan, starting subscriber to pointcloud"<<std::endl;
             // beginner.now();
             cloud_sub_.subscribe(nh, "cloud_in", 2*input_queue_size_);
         }
@@ -276,13 +276,14 @@ namespace Pointcloud_Nodelet_learn
         beginner=beginner.now();
 
 
-        // std::cout<<"begin callback"<<std::endl;
+        std::cout<<"begin callback"<<std::endl;
         
         // std::cout<<cloud_msg->points[0].x<<std::endl;
         
 
         int cloud_size=pclCloud->height*pclCloud->width;
         pcl::PointCloud <pcl::PointXYZRGB>::Ptr pointcloud_pointer=cleanCloud(pclCloud);
+	std::cout<<"hooooooooooooooooooooooooo"<<std::endl;
         transformCloud(pointcloud_pointer);
         
 
@@ -304,8 +305,8 @@ namespace Pointcloud_Nodelet_learn
         // grid_map::GridMapRosConverter::toMessage(*map_ptr,{"elevation"},*msg_ptr);
 	// std::cout<<"pointxloud_convert: "<<ros::Time::now()-begin<<"converting: "<<ros::Time::now()-convert<<" ";
         ros::Time bef_pub=ros::Time::now();
-        // std::cout<<"processing: "<<bef_pub-begin<<" ";
-        // std::cout<<msg_ptr->data[0].layout.data_offset<<std::endl;
+         std::cout<<"processing: "<<std::endl;
+       // std::cout<<msg_ptr->data[0].layout.data_offset<<std::endl;
         pub.publish(msg_ptr);
         // std::cout<<"publisher count: "<<counter<<std::endl;
         // if(!(counter%100)){
@@ -364,7 +365,8 @@ namespace Pointcloud_Nodelet_learn
         counter++;
         try
         {
-            geometry_msgs::TransformStamped trans= tf2->lookupTransform("odom",pclCloud->header.frame_id,ros::Time::now()-ros::Duration(0.06));
+		std::cout<<"trying"<<std::endl;	
+            geometry_msgs::TransformStamped trans= tf2->lookupTransform("odom",pclCloud->header.frame_id,ros::Time::now()-ros::Duration(0.1));
             Eigen::MatrixXf trmt=((Eigen::MatrixXd)tf2::transformToEigen(trans).matrix()).cast<float>();
             trmt.resize(1,16);
             
@@ -375,6 +377,7 @@ namespace Pointcloud_Nodelet_learn
             if(! nh.ok()){
                 break;
             }
+	    std::cout<<"transferring "<<i<<std::endl;
             HostVec.push_back(pclCloud->points[i].x);
             HostVec.push_back(pclCloud->points[i].y);
             HostVec.push_back(pclCloud->points[i].z);
@@ -388,18 +391,19 @@ namespace Pointcloud_Nodelet_learn
 
             thrust::device_vector<float> result(rand.begin(),rand.end());
             int x=HostVec.size()/4;
-
+	std::cout<<"vectors made"<<std::endl;
             float alpha = 1.0f;
             float beta = 0.0f;
             cudaDeviceSynchronize();
             cublasSgemm(this->h,CUBLAS_OP_N, CUBLAS_OP_N, 4,x,4 , &alpha, thrust::raw_pointer_cast(DeviceMat.data()), 4, thrust::raw_pointer_cast(DeviceVec.data()), 4, &beta, thrust::raw_pointer_cast(result.data()), 4);
             cudaDeviceSynchronize();
+	    
             std::vector<float> resVec(result.size());
             thrust::copy(result.begin(),result.end(),resVec.begin());
             int m=0;
 
             
-            // std::cout<<map_ptr->get("elevation").IsRowMajor<<std::endl;
+            //std::cout<<map_ptr->get("elevation").IsRowMajor<<std::endl;
 
             // for(int i=0;i<resVec.size();i+=4){
             //     if(!nh.ok() ){
@@ -424,6 +428,7 @@ namespace Pointcloud_Nodelet_learn
 
 
                 for(int i=0;i<resVec.size();i+=4){
+			std::cout<<"mapping "<<i<< "resvec size: "<<resVec.size()<<" cloud_size: "<<pclCloud->size()<<std::endl;
                 if(!nh.ok() ){
                     // ros::Duration(5).sleep();
                     break;
