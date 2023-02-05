@@ -317,33 +317,6 @@ namespace Pointcloud_Nodelet_learn
         std::cout<<"publish freq: "<<(1/(ros::Time::now()-beginner).toSec())<<std::endl;
     }
 
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr PointcloudProcessorNodelet::cleanCloud(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& pclCloud){
         pcl::PassThrough<pcl::PointXYZRGB> pass_through;
@@ -487,103 +460,7 @@ namespace Pointcloud_Nodelet_learn
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    void PointcloudProcessorNodelet::createHostVector(std::vector<float>* HostVec,const sensor_msgs::PointCloud2ConstPtr& cloud_msg,ros::NodeHandle *nh){
+void PointcloudProcessorNodelet::createHostVector(std::vector<float>* HostVec,const sensor_msgs::PointCloud2ConstPtr& cloud_msg,ros::NodeHandle *nh){
         int i=0;
         for (sensor_msgs::PointCloud2ConstIterator<float> iter_x_in(*cloud_msg, "x"), iter_y_in(*cloud_msg, "y"),iter_z_in(*cloud_msg, "z");iter_x_in != iter_x_in.end();++iter_x_in, ++iter_y_in, ++iter_z_in){
                 if(!nh->ok()){
